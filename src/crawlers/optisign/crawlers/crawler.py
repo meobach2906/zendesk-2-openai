@@ -4,11 +4,12 @@ from lib.api_client import ZendeskClient
 from models.article import ZendeskArticle, Article
 from utils.utils import Utils
 from pathlib import Path
+from services.open_ai.open_ai import OpenAiService
 
 class Crawler:
-  def __init__(self, storage: BaseStorage):
+  def __init__(self, storage: BaseStorage, openai_service: OpenAiService):
     self.storage = storage
-    self.start()
+    self.openai_service = openai_service
     self.client = ZendeskClient()
     self.next_page = 1
     self.per_page = 30
@@ -58,23 +59,32 @@ class Crawler:
     if data.last_article_updated_at:
       self.last_article_updated_at = datetime.fromisoformat(data.last_article_updated_at.replace("Z", "+00:00"))
 
-    for item in response.articles:
+    articles = response.get('articles') or []
+
+    if len(articles) == 0:
+      self.is_finished = True
+      return
+
+    for item in articles or []:
       article: Article = ZendeskArticle(item).to_article()
       updated_at = datetime.fromisoformat(article.updated_at.replace("Z", "+00:00"))
       if self.last_article_updated_at and self.last_article_updated_at < updated_at:
         self.is_finished = True
-        break
+        return
       if not self.newest_article_update_at:
         self.newest_article_update_at = article.updated_at
 
+      file_path = self.base_dir + '/public/' + article.build_file_name()
       self.utils.save_file({
-        "file_path": self.base_dir + '/public/' + article.build_file_name(),
+        "file_path": file_path,
         "content": article.format_content(),
       })
 
+      self.openai_service.process(file_path)
 
     if not self.last_article_updated_at:
       self.is_finished = True
+      return
 
     self.next_page += 1
 
