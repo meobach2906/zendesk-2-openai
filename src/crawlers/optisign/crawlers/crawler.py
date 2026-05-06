@@ -2,7 +2,7 @@ from storage.base_storage.base_storage import BaseStorage
 from datetime import datetime
 from lib.api_client import ZendeskClient
 from models.article import ZendeskArticle, Article
-from utils.utils import Utils
+from utils.utils import utils
 from pathlib import Path
 from services.open_ai.open_ai import OpenAiService
 
@@ -15,7 +15,6 @@ class Crawler:
     self.per_page = 30
     self.is_finished = False
     self.newest_article_update_at = None
-    self.utils = Utils()
     self.base_dir = Path(__file__).resolve().parent
 
   def _build_request(self, data):
@@ -75,7 +74,7 @@ class Crawler:
         self.newest_article_update_at = article.updated_at
 
       file_path = self.base_dir + '/public/' + article.build_file_name()
-      self.utils.save_file({
+      utils.save_file({
         "file_path": file_path,
         "content": article.format_content(),
       })

@@ -1,5 +1,5 @@
 from pathlib import Path
-from utils import utils
+from utils.utils import utils
 from models import schema
 from base_storage.base_storage import BaseStorage
 import json
@@ -16,6 +16,6 @@ class LocalStorage(BaseStorage):
     return schema.Schema(data)
   
   def save(self):
-    utils.Utils.save_file(json.dumps(self.storage.__dict__), self.path)
+    utils.save_file(json.dumps(self.storage.__dict__), self.path)
 
   

@@ -3,6 +3,8 @@ import os
 
 from openai import OpenAI
 
+from utils.utils import utils
+
 class OpenAiService:
   def __init__(self):
     self.client = OpenAI(api_key=os.get('OPENAI_API_KEY'))
@@ -25,7 +27,7 @@ class OpenAiService:
       }
     )
 
-  def process(self, file_path):
+  def _process(self, file_path):
     file = self.client.files.create(
       file=open(file_path, "rb"),
       purpose="assistants"
@@ -38,5 +40,8 @@ class OpenAiService:
       "file": file,
       "vector": vector
     }
+  
+  def process(self, file_path):
+    return utils.retry(self._process(file_path))
 
 

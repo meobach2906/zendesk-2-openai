@@ -3,6 +3,8 @@ import requests
 from dotenv import load_dotenv
 import os
 
+from utils.utils import utils
+
 load_dotenv()
 
 class ZendeskClient:
@@ -30,6 +32,11 @@ class ZendeskClient:
     params = request.get('params')
     body = request.get('body')
 
-    response = requests.request(method, f"{self.base_url}/{endpoint}", params=params, json=body, auth=self.auth, timeout=self.timeout)
-    response.raise_for_status()
+    def request():
+      response = requests.request(method, f"{self.base_url}/{endpoint}", params=params, json=body, auth=self.auth, timeout=self.timeout)
+      response.raise_for_status()
+      return response
+
+    response = utils.retry(request)
+
     return response.json()

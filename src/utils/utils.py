@@ -8,7 +8,7 @@ class Utils:
       f.write(content)
     return file_path
   
-  def retry(func, retry_attempt = 3, wait_time = 5):
+  def retry(self, func, retry_attempt = 3, wait_time = 5):
     retry_times = 0
     while retry_times < retry_attempt:
       try:
@@ -21,3 +21,5 @@ class Utils:
           raise
 
         time.sleep(wait_time)
+
+utils = Utils()
