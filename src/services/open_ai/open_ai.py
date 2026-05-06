@@ -4,6 +4,9 @@ import os
 from openai import OpenAI
 
 from utils.utils import utils
+from pathlib import Path
+
+import re
 
 class OpenAiService:
   def __init__(self):
@@ -37,11 +40,49 @@ class OpenAiService:
       file_id=file.id
     )
     return {
+      "path": file_path,
       "file": file,
       "vector": vector
     }
   
   def process(self, file_path):
-    return utils.retry(self._process(file_path))
+    paths = self._chunk_markdown(file_path)
 
+    results = []
+    for path in paths:
+      result = utils.retry(self._process(path))
+      results.append(result)
+
+    return results
+  
+  def _chunk_markdown(self, file_path, max_size=1000, overlap=200):
+
+    with open(file_path, "r", encoding="utf-8") as f:
+      content = f.read()
+
+    sections = re.split(r'(?=^#{1,2} )', content, flags=re.MULTILINE)
+
+    chunks = []
+
+    for section in sections:
+      if len(section) <= max_size:
+        chunks.append(section)
+      else:
+        start = 0
+        while start < len(section):
+          end = start + max_size
+          chunk = section[start:end]
+          chunks.append(chunk)
+          start += max_size - overlap
+
+    name = os.path.splitext(os.path.basename(file_path))[0]
+
+    paths = []
+    for i, chunk in enumerate(chunks):
+      path = f"{Path(__file__).resolve().parent}/public/{name}_{i}.md"
+      with open(path, "w") as f:
+        f.write(chunk)
+      paths.append(path)
+
+    return paths
 
