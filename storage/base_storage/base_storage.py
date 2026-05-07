@@ -1,20 +1,19 @@
 from abc import ABC, abstractmethod
 from models import schema
+from typing import Any
 
 class BaseStorage(ABC):
   def __init__(self):
-    self.storage = schema.Schema()
+    self._storage = schema.Schema()
 
   @abstractmethod
-  def save(self):
+  def save(self) -> None:
     pass
 
-  def update(self, data):
-    self.storage = schema.Schema(data)
+  def update(self, data: Any) -> schema.Schema:
+    self._storage = schema.Schema(data)
     self.save()
-    return self.storage
+    return self._storage
 
-  def get(self):
-    return self.storage
-    
-
+  def get(self) -> schema.Schema:
+    return self._storage

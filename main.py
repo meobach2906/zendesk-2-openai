@@ -13,12 +13,24 @@ STORAGE = os.getenv("STORAGE") or 'local'
 
 STORAGE = STORAGE.lower()
 
-def initStorage(storage):
+def init_storage(storage):
   if storage == 'local':
     return LocalStorage()
   if storage == 'digital_ocean_storage':
     return DigitalOceanSpaceStorage()
-  
-crawler = Crawler(initStorage(STORAGE), OpenAiService())
+  raise ValueError(f"Unknown storage type: {storage}")
 
-crawler.start()
+def main():
+  storage_type = os.getenv("STORAGE", "local").lower()
+
+  storage = init_storage(storage_type)
+
+  openai_service = OpenAiService(storage)
+
+  crawler = Crawler(storage, openai_service)
+
+  crawler.start()
+
+
+if __name__ == "__main__":
+  main()

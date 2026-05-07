@@ -33,6 +33,9 @@ class Crawler:
     self.state: Dict[str, int] = {
       "total_processed": 0,
       "total_chunk": 0,
+      "added": 0,
+      "updated": 0,
+      "skipped": 0
     }
 
   def _build_request(self) -> Dict[str, Any]:
@@ -52,11 +55,6 @@ class Crawler:
 
     self.finish()
 
-    print(
-      f"Finished total_processed: {self.state['total_processed']}; "
-      f"total_chunk: {self.state['total_chunk']}"
-    )
-
   def crawl(self) -> None:
     request = self._build_request()
     response = self.client.request(request)
@@ -68,7 +66,7 @@ class Crawler:
       return
 
     for item in articles:
-      article: Article = ZendeskArticle(item).to_article()
+      article: Article = ZendeskArticle.to_article(item)
 
       updated_at = datetime.fromisoformat(
         article.updated_at.replace("Z", "+00:00")
@@ -100,7 +98,12 @@ class Crawler:
 
         if synced_edited_at >= edited_at:
           print(f"Skipped article id: {article.id}")
+          self.state["skipped"] += 1
           continue
+
+        self.state["updated"] += 1
+      else:
+        self.state["added"] += 1
 
       file_name = article.build_file_name()
       file_path = self.base_dir / "public" / file_name
@@ -144,3 +147,8 @@ class Crawler:
     if self.newest_article_updated_at:
       self.data.last_article_updated_at = self.newest_article_updated_at.isoformat()
     self.storage.update(self.data)
+    print(
+      f"Finished total_processed: {self.state['total_processed']}; "
+      f"total_chunk: {self.state['total_chunk']}"
+      f"added: {self.state['added']}, updated: {self.state['updated']}, skipped: {self.state['skipped']}"
+    )
