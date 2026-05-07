@@ -1,85 +1,138 @@
 from storage.base_storage.base_storage import BaseStorage
-from datetime import datetime
+from datetime import datetime, timezone
 from lib.api_client import ZendeskClient
 from models.article import ZendeskArticle, Article
 from utils.utils import utils
 from pathlib import Path
 from services.open_ai.open_ai import OpenAiService
+from typing import Optional, Dict, Any
+
 
 class Crawler:
   def __init__(self, storage: BaseStorage, openai_service: OpenAiService):
     self.storage = storage
     self.openai_service = openai_service
     self.client = ZendeskClient()
-    self.next_page = 1
-    self.per_page = 30
-    self.is_finished = False
-    self.newest_article_update_at = None
-    self.base_dir = Path(__file__).resolve().parent
 
-  def _build_request(self, data):
-    request = {
+    self.next_page: int = 1
+    self.per_page: int = 30
+    self.is_finished: bool = False
+
+    self.base_dir: Path = Path(__file__).resolve().parent
+
+    self.newest_article_updated_at: Optional[datetime] = None
+    self.last_article_updated_at: Optional[datetime] = None
+
+    self.data = self.storage.get()
+
+    if self.data.last_article_updated_at:
+      self.last_article_updated_at = datetime.fromisoformat(
+        self.data.last_article_updated_at.replace("Z", "+00:00")
+      )
+
+    self.state: Dict[str, int] = {
+      "total_processed": 0,
+      "total_chunk": 0,
+    }
+
+  def _build_request(self) -> Dict[str, Any]:
+    return {
       "endpoint": "/api/v2/help_center/en-us/articles.json",
       "params": {
         "page": self.next_page,
         "per_page": self.per_page,
         "sort_by": "updated_at",
         "sort_order": "desc",
-      }
+      },
     }
 
-    if data.last_article_updated_at:
-      request.params['start_time'] = int(datetime.fromisoformat(data.last_article_updated_at.replace("Z", "+00:00")))
-
-    return request    
-  
-  def start(self):
+  def start(self) -> None:
     while not self.is_finished:
       self.crawl()
 
-    if self.newest_article_update_at:
-      data = self.storage.get()
-      data.last_article_updated_at = self.newest_article_update_at
-      self.storage.update(data)
+    self.finish()
 
-    return
+    print(
+      f"Finished total_processed: {self.state['total_processed']}; "
+      f"total_chunk: {self.state['total_chunk']}"
+    )
 
-  
-  def crawl(self):
-
-    data = self.storage.get()
-
+  def crawl(self) -> None:
     request = self._build_request()
-
     response = self.client.request(request)
 
-    self.last_article_updated_at = None
+    articles = response.get("articles") or []
 
-    if data.last_article_updated_at:
-      self.last_article_updated_at = datetime.fromisoformat(data.last_article_updated_at.replace("Z", "+00:00"))
-
-    articles = response.get('articles') or []
-
-    if len(articles) == 0:
+    if not articles:
       self.is_finished = True
       return
 
-    for item in articles or []:
+    for item in articles:
       article: Article = ZendeskArticle(item).to_article()
-      updated_at = datetime.fromisoformat(article.updated_at.replace("Z", "+00:00"))
-      if self.last_article_updated_at and self.last_article_updated_at < updated_at:
+
+      updated_at = datetime.fromisoformat(
+        article.updated_at.replace("Z", "+00:00")
+      )
+
+      edited_at = datetime.fromisoformat(
+        article.edited_at.replace("Z", "+00:00")
+      )
+
+      if (
+        self.newest_article_updated_at is None
+        or updated_at > self.newest_article_updated_at
+      ):
+        self.newest_article_updated_at = updated_at
+
+      if (
+        self.last_article_updated_at
+        and updated_at < self.last_article_updated_at
+      ):
         self.is_finished = True
         return
-      if not self.newest_article_update_at:
-        self.newest_article_update_at = article.updated_at
 
-      file_path = self.base_dir + '/public/' + article.build_file_name()
+      synced_article = self.data.map_synced_article.get(article.id)
+
+      if synced_article:
+        synced_edited_at = datetime.fromisoformat(
+          synced_article["edited_at"].replace("Z", "+00:00")
+        )
+
+        if synced_edited_at >= edited_at:
+          print(f"Skipped article id: {article.id}")
+          continue
+
+      file_name = article.build_file_name()
+      file_path = self.base_dir / "public" / file_name
+
+      print(f"Start processing article id: {article.id}")
+      print(f"Saving markdown file name: {file_name}")
+
       utils.save_file({
-        "file_path": file_path,
+        "file_path": str(file_path),
         "content": article.format_content(),
       })
 
-      self.openai_service.process(file_path)
+      print(f"Uploading: {file_name} to OpenAI")
+
+      try:
+        results = self.openai_service.process(file_path)
+      finally:
+        file_path.unlink(missing_ok=True)
+
+
+      if not synced_article:
+        self.data.map_synced_article[article.id] = {
+          "article_id": article.id,
+          "edited_at": article.edited_at,
+        }
+
+      self.data.map_synced_article[article.id]["edited_at"] = article.edited_at
+
+      self.storage.update(self.data)
+
+      self.state["total_processed"] += 1
+      self.state["total_chunk"] += len(results)
 
     if not self.last_article_updated_at:
       self.is_finished = True
@@ -87,10 +140,7 @@ class Crawler:
 
     self.next_page += 1
 
-    return
-  
-  def finish(self):
-    data = self.storage.get()
-    data.last_article_updated_at = self.last_article_updated_at
-    self.storage.update(data)
-
+  def finish(self) -> None:
+    if self.newest_article_updated_at:
+      self.data.last_article_updated_at = self.newest_article_updated_at.isoformat()
+    self.storage.update(self.data)

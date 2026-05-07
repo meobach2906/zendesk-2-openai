@@ -12,6 +12,7 @@ class BaseStorage(ABC):
   def update(self, data):
     self.storage = schema.Schema(data)
     self.save()
+    return self.storage
 
   def get(self):
     return self.storage

@@ -48,10 +48,22 @@ class OpenAiService:
   def process(self, file_path):
     paths = self._chunk_markdown(file_path)
 
+    name = os.path.splitext(os.path.basename(file_path))
+
+    print(f'Chunking {name} into {len(paths)} chunk')
+
     results = []
-    for path in paths:
-      result = utils.retry(self._process(path))
-      results.append(result)
+
+    for i, path in enumerate(paths):
+      try:
+        result = utils.retry(self._process(path))
+        results.append(result)
+        print(f'Process chunk {i}')
+      except Exception as e:
+        print(f'Fail to process {name} at chunk {i}, reason: {e}')
+        raise e
+      
+    print(f'Finish process {name}')  
 
     return results
   

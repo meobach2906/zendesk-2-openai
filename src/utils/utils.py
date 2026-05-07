@@ -15,7 +15,7 @@ class Utils:
         return func()
       except Exception as e:
         retry_times += 1
-        print(f"Lỗi lần {retry_times}: {e}")
+        print(f"Failed attempt {retry_times}: {e}")
 
         if retry_times >= retry_attempt:
           raise
