@@ -1,7 +1,7 @@
 from pathlib import Path
-from utils.utils import utils
-from models import schema
-from base_storage.base_storage import BaseStorage
+from src.utils.utils import utils
+from storage.models import schema
+from storage.base_storage.base_storage import BaseStorage
 import json
 
 class LocalStorage(BaseStorage):

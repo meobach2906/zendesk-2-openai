@@ -1,7 +1,8 @@
 import boto3
 import json
-from models import schema
-from base_storage.base_storage import BaseStorage
+from storage.models import schema
+from storage.base_storage.base_storage import BaseStorage
+from typing import Any
 
 from dotenv import load_dotenv
 import os
@@ -9,7 +10,7 @@ import os
 load_dotenv()
 
 class DigitalOceanSpaceStorage(BaseStorage):
-  def __init__(self, config):
+  def __init__(self, config: Any = None):
     super().__init__()
 
     config = config or {}

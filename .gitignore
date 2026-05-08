@@ -1,1 +1,7 @@
 /public
+
+**/__pycache__
+
+.vscode
+
+.env

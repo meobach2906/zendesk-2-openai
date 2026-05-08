@@ -5,7 +5,7 @@ import re
 from openai import OpenAI
 from pathlib import Path
 
-from utils.utils import utils
+from src.utils.utils import utils
 from storage.base_storage.base_storage import BaseStorage
 
 load_dotenv()
@@ -29,7 +29,7 @@ class OpenAiService:
       )
       self.vector_store_id = vector_store.id
       self.data.open_ai['vector_store_id'] = vector_store.id
-      self.storage.update(self.data)
+      self.data = self.storage.update(self.data)
     else:
       self.vector_store_id = vector_store_id
 
@@ -55,7 +55,7 @@ You are OptiBot, the customer-support bot for OptiSigns.com.
       )
       self.assistant_id = assistant.id
       self.data.open_ai['assistant_id'] = assistant.id
-      self.storage.update(self.data)
+      self.data = self.storage.update(self.data)
     else:
       self.assistant_id = assistant_id
 
@@ -106,7 +106,11 @@ You are OptiBot, the customer-support bot for OptiSigns.com.
     with open(file_path, "r", encoding="utf-8") as f:
       content = f.read()
 
-    sections = re.split(r'(?=^#{1,2} )', content, flags=re.MULTILINE)
+    sections = re.split(
+        r'(?=^#{1,6}\s)|(?=^\d+[\.\)]\s.{50,})',
+        content,
+        flags=re.MULTILINE
+    )
 
     chunks = []
 
@@ -125,7 +129,7 @@ You are OptiBot, the customer-support bot for OptiSigns.com.
 
     file_name = os.path.splitext(os.path.basename(file_path))[0]
 
-    base_dir = Path(__file__).resolve().parent / "public"
+    base_dir = Path(file_path).parent
     base_dir.mkdir(parents=True, exist_ok=True)
 
     paths = []

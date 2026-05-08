@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from models import schema
+from storage.models import schema
 from typing import Any
 
 class BaseStorage(ABC):

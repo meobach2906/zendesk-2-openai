@@ -4,7 +4,7 @@ import requests
 from dotenv import load_dotenv
 from typing import Optional, Dict, Any, Tuple
 
-from utils.utils import utils
+from src.utils.utils import utils
 
 load_dotenv()
 

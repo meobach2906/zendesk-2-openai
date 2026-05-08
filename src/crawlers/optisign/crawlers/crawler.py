@@ -1,12 +1,12 @@
 from storage.base_storage.base_storage import BaseStorage
 from datetime import datetime, timezone
-from lib.api_client import ZendeskClient
-from models.article import ZendeskArticle, Article
-from utils.utils import utils
+from src.crawlers.optisign.lib.api_client import ZendeskClient
+from src.crawlers.optisign.models.article import ZendeskArticle, Article
+from src.utils.utils import utils
 from pathlib import Path
-from services.open_ai.open_ai import OpenAiService
+from src.services.open_ai.open_ai import OpenAiService
 from typing import Optional, Dict, Any
-
+import os
 
 class Crawler:
   def __init__(self, storage: BaseStorage, openai_service: OpenAiService):
@@ -18,7 +18,9 @@ class Crawler:
     self.per_page: int = 30
     self.is_finished: bool = False
 
-    self.base_dir: Path = Path(__file__).resolve().parent
+    self.base_dir: Path = Path(__file__).resolve().parents[4]
+
+    os.makedirs(os.path.dirname(self.base_dir / "public"), exist_ok=True)
 
     self.newest_article_updated_at: Optional[datetime] = None
     self.last_article_updated_at: Optional[datetime] = None
@@ -68,35 +70,28 @@ class Crawler:
     for item in articles:
       article: Article = ZendeskArticle.to_article(item)
 
-      updated_at = datetime.fromisoformat(
-        article.updated_at.replace("Z", "+00:00")
-      )
-
-      edited_at = datetime.fromisoformat(
-        article.edited_at.replace("Z", "+00:00")
-      )
 
       if (
         self.newest_article_updated_at is None
-        or updated_at > self.newest_article_updated_at
+        or article.updated_at.timestamp() > self.newest_article_updated_at.timestamp()
       ):
-        self.newest_article_updated_at = updated_at
+        self.newest_article_updated_at = article.updated_at
 
       if (
         self.last_article_updated_at
-        and updated_at < self.last_article_updated_at
+        and article.updated_at.timestamp() < self.last_article_updated_at
       ):
         self.is_finished = True
         return
 
-      synced_article = self.data.map_synced_article.get(article.id)
+      synced_article = self.data.map_synced_article.get(str(article.id))
 
       if synced_article:
         synced_edited_at = datetime.fromisoformat(
           synced_article["edited_at"].replace("Z", "+00:00")
         )
 
-        if synced_edited_at >= edited_at:
+        if synced_edited_at.timestamp() >=  article.edited_at.timestamp():
           print(f"Skipped article id: {article.id}")
           self.state["skipped"] += 1
           continue
@@ -127,12 +122,12 @@ class Crawler:
       if not synced_article:
         self.data.map_synced_article[article.id] = {
           "article_id": article.id,
-          "edited_at": article.edited_at,
+          "edited_at": article.edited_at.isoformat(),
         }
 
-      self.data.map_synced_article[article.id]["edited_at"] = article.edited_at
+      self.data.map_synced_article[article.id]["edited_at"] = article.edited_at.isoformat()
 
-      self.storage.update(self.data)
+      self.data = self.storage.update(self.data)
 
       self.state["total_processed"] += 1
       self.state["total_chunk"] += len(results)
@@ -146,9 +141,9 @@ class Crawler:
   def finish(self) -> None:
     if self.newest_article_updated_at:
       self.data.last_article_updated_at = self.newest_article_updated_at.isoformat()
-    self.storage.update(self.data)
+    self.data = self.storage.update(self.data)
     print(
       f"Finished total_processed: {self.state['total_processed']}; "
-      f"total_chunk: {self.state['total_chunk']}"
+      f"total_chunk: {self.state['total_chunk']} "
       f"added: {self.state['added']}, updated: {self.state['updated']}, skipped: {self.state['skipped']}"
     )

@@ -1,9 +1,11 @@
 import time
+from pathlib import Path
 
 class Utils:
   def save_file(self, data):
     content = data.get('content')
     file_path = data.get('file_path')
+    Path(file_path).parent.mkdir(parents=True, exist_ok=True)
     with open(file_path, "w", encoding="utf-8") as f:
       f.write(content)
     return file_path

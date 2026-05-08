@@ -66,7 +66,7 @@ class Article:
   def build_file_name(self) -> str:
     path = urlparse(self.html_url).path
     slug = path.rstrip("/").split("/")[-1]
-    return f"{self.id}_{slug}.md"
+    return f"{slug}.md"
 
   def format_content(self) -> str:
     return md(self.body)
