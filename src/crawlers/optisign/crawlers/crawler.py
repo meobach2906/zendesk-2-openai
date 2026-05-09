@@ -79,7 +79,7 @@ class Crawler:
 
       if (
         self.last_article_updated_at
-        and article.updated_at.timestamp() < self.last_article_updated_at
+        and article.updated_at.timestamp() < self.last_article_updated_at.timestamp()
       ):
         self.is_finished = True
         return
